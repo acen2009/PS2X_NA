@@ -89,6 +89,7 @@ GNU General Public License for more details.
 #include <math.h>
 #include <stdio.h>
 #include <stdint.h>
+
 #ifdef __AVR__
   // AVR
   #include <avr/io.h>
@@ -100,7 +101,8 @@ GNU General Public License for more details.
   #define CTRL_CLK        5
   #define CTRL_CLK_HIGH   5
   #define CTRL_BYTE_DELAY 4
-#endif 
+#endif
+
 
 //These are our button constants
 #define PSB_SELECT      0x0001
@@ -198,31 +200,12 @@ class PS2X {
     unsigned int last_buttons;
     unsigned int buttons;
 	
-    #ifdef __AVR__
-      uint8_t maskToBitNum(uint8_t);
-      uint8_t _clk_mask; 
-      volatile uint8_t *_clk_oreg;
-      uint8_t _cmd_mask; 
-      volatile uint8_t *_cmd_oreg;
-      uint8_t _att_mask; 
-      volatile uint8_t *_att_oreg;
-      uint8_t _dat_mask; 
-      volatile uint8_t *_dat_ireg;
-    #else
-      uint8_t maskToBitNum(uint8_t);
-      uint16_t _clk_mask; 
-      volatile uint32_t *_clk_lport_set;
-      volatile uint32_t *_clk_lport_clr;
-      uint16_t _cmd_mask; 
-      volatile uint32_t *_cmd_lport_set;
-      volatile uint32_t *_cmd_lport_clr;
-      uint16_t _att_mask; 
-      volatile uint32_t *_att_lport_set;
-      volatile uint32_t *_att_lport_clr;
-      uint16_t _dat_mask; 
-      volatile uint32_t *_dat_lport;
-    #endif
-	
+    uint8_t maskToBitNum(uint8_t);
+    uint8_t _clk;
+    uint8_t _cmd;
+    uint8_t _att;
+    uint8_t _dat;
+
     unsigned long last_read;
     byte read_delay;
     byte controller_type;

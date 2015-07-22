@@ -2,12 +2,17 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdint.h>
-#include <avr/io.h>
-#if ARDUINO > 22
-  #include "Arduino.h"
+
+#ifdef __AVR__
+  #include <avr/io.h>
+  #if ARDUINO > 22
+    #include "Arduino.h"
+  #else
+    #include "WProgram.h"
+    #include "pins_arduino.h"
+  #endif
 #else
-  #include "WProgram.h"
-  #include "pins_arduino.h"
+  #include "Arduino.h"
 #endif
 
 static byte enter_config[]={0x01,0x43,0x00,0x01,0x00};
@@ -29,12 +34,12 @@ boolean PS2X::NewButtonState(unsigned int button) {
 
 /****************************************************************************************/
 boolean PS2X::ButtonPressed(unsigned int button) {
-  return(NewButtonState(button) & Button(button));
+  return (NewButtonState(button) & Button(button));
 }
 
 /****************************************************************************************/
 boolean PS2X::ButtonReleased(unsigned int button) {
-  return((NewButtonState(button)) & ((~last_buttons & button) > 0));
+  return ((NewButtonState(button)) & ((~last_buttons & button) > 0));
 }
 
 /****************************************************************************************/
@@ -169,43 +174,20 @@ byte PS2X::config_gamepad(uint8_t clk, uint8_t cmd, uint8_t att, uint8_t dat, bo
 
   byte temp[sizeof(type_read)];
 
-#ifdef __AVR__
-  _clk_mask = digitalPinToBitMask(clk);
-  _clk_oreg = portOutputRegister(digitalPinToPort(clk));
-  _cmd_mask = digitalPinToBitMask(cmd);
-  _cmd_oreg = portOutputRegister(digitalPinToPort(cmd));
-  _att_mask = digitalPinToBitMask(att);
-  _att_oreg = portOutputRegister(digitalPinToPort(att));
-  _dat_mask = digitalPinToBitMask(dat);
-  _dat_ireg = portInputRegister(digitalPinToPort(dat));
-#else
-  uint32_t            lport;                   // Port number for this pin
-  _clk_mask = digitalPinToBitMask(clk);
-  lport = digitalPinToPort(clk);
-  _clk_lport_set = portOutputRegister(lport) + 2;
-  _clk_lport_clr = portOutputRegister(lport) + 1;
-
-  _cmd_mask = digitalPinToBitMask(cmd);
-  lport = digitalPinToPort(cmd);
-  _cmd_lport_set = portOutputRegister(lport) + 2;
-  _cmd_lport_clr = portOutputRegister(lport) + 1;
-
-  _att_mask = digitalPinToBitMask(att);
-  lport = digitalPinToPort(att);
-  _att_lport_set = portOutputRegister(lport) + 2;
-  _att_lport_clr = portOutputRegister(lport) + 1;
-
-  _dat_mask = digitalPinToBitMask(dat);
-  _dat_lport = portInputRegister(digitalPinToPort(dat));
-#endif
+  _clk = clk;
+  _att = att;
+  _cmd = cmd;
+  _dat = dat;
 
   pinMode(clk, OUTPUT); //configure ports
   pinMode(att, OUTPUT);
   pinMode(cmd, OUTPUT);
-  pinMode(dat, INPUT);
 
 #if defined(__AVR__)
+  pinMode(dat, INPUT);
   digitalWrite(dat, HIGH); //enable pull-up
+#else
+  pinMode(dat, INPUT_PULLUP);
 #endif
 
   CMD_SET(); // SET(*_cmd_oreg,_cmd_mask);
@@ -217,7 +199,7 @@ byte PS2X::config_gamepad(uint8_t clk, uint8_t cmd, uint8_t att, uint8_t dat, bo
 
   //see if it talked - see if mode came back. 
   //If still anything but 41, 73 or 79, then it's not talking
-  if(PS2data[1] != 0x41 && PS2data[1] != 0x73 && PS2data[1] != 0x79){ 
+  if(PS2data[1] != 0x41 && PS2data[1] != 0x71 && PS2data[1] != 0x73 && PS2data[1] != 0x79){
 #ifdef PS2X_DEBUG
     Serial.println("Controller mode not matched or no controller found");
     Serial.print("Expected 0x41, 0x73 or 0x79, but got ");
@@ -384,81 +366,42 @@ void PS2X::reconfig_gamepad(){
 }
 
 /****************************************************************************************/
-#ifdef __AVR__
 inline void  PS2X::CLK_SET(void) {
-  register uint8_t old_sreg = SREG;
-  cli();
-  *_clk_oreg |= _clk_mask;
-  SREG = old_sreg;
+  noInterrupts();
+  digitalWrite(_clk, HIGH); // *_clk_oreg |= _clk_mask;
+  interrupts();
 }
 
 inline void  PS2X::CLK_CLR(void) {
-  register uint8_t old_sreg = SREG;
-  cli();
-  *_clk_oreg &= ~_clk_mask;
-  SREG = old_sreg;
+  noInterrupts();
+  digitalWrite(_clk, LOW); // *_clk_oreg &= ~_clk_mask;
+  interrupts();
 }
 
 inline void  PS2X::CMD_SET(void) {
-  register uint8_t old_sreg = SREG;
-  cli();
-  *_cmd_oreg |= _cmd_mask; // SET(*_cmd_oreg,_cmd_mask);
-  SREG = old_sreg;
+  noInterrupts();
+  digitalWrite(_cmd, HIGH); // *_cmd_oreg |= _cmd_mask;
+  interrupts();
 }
 
 inline void  PS2X::CMD_CLR(void) {
-  register uint8_t old_sreg = SREG;
-  cli();
-  *_cmd_oreg &= ~_cmd_mask; // SET(*_cmd_oreg,_cmd_mask);
-  SREG = old_sreg;
+  noInterrupts();
+  digitalWrite(_cmd, LOW); // *_cmd_oreg &= ~_cmd_mask;
+  interrupts();
 }
 
 inline void  PS2X::ATT_SET(void) {
-  register uint8_t old_sreg = SREG;
-  cli();
-  *_att_oreg |= _att_mask ;
-  SREG = old_sreg;
+  noInterrupts();
+  digitalWrite(_att, HIGH); // *_att_oreg |= _att_mask;
+  interrupts();
 }
 
 inline void PS2X::ATT_CLR(void) {
-  register uint8_t old_sreg = SREG;
-  cli();
-  *_att_oreg &= ~_att_mask;
-  SREG = old_sreg;
+  noInterrupts();
+  digitalWrite(_att, LOW); // *_att_oreg &= ~_att_mask;
+  interrupts();
 }
 
 inline bool PS2X::DAT_CHK(void) {
-  return (*_dat_ireg & _dat_mask) ? true : false;
+  return digitalRead(_dat) ? true : false;
 }
-
-#else
-// On pic32, use the set/clr registers to make them atomic...
-inline void  PS2X::CLK_SET(void) {
-  *_clk_lport_set |= _clk_mask;
-}
-
-inline void  PS2X::CLK_CLR(void) {
-  *_clk_lport_clr |= _clk_mask;
-}
-
-inline void  PS2X::CMD_SET(void) {
-  *_cmd_lport_set |= _cmd_mask;
-}
-
-inline void  PS2X::CMD_CLR(void) {
-  *_cmd_lport_clr |= _cmd_mask;
-}
-
-inline void  PS2X::ATT_SET(void) {
-  *_att_lport_set |= _att_mask;
-}
-
-inline void PS2X::ATT_CLR(void) {
-  *_att_lport_clr |= _att_mask;
-}
-
-inline bool PS2X::DAT_CHK(void) {
-  return (*_dat_lport & _dat_mask) ? true : false;
-}
-
-#endif
